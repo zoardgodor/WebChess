@@ -1,9 +1,12 @@
 const boardEl = document.getElementById("board");
+let squareLayer = document.getElementById("squareLayer");
+let pieceLayer = document.getElementById("pieceLayer");
 const statusEl = document.getElementById("status");
 const evalEl = document.getElementById("eval");
 const movesEl = document.getElementById("moves");
 const resetBtn = document.getElementById("resetBtn");
 const flipToggle = document.getElementById("flipToggle");
+const freeToggle = document.getElementById("freeToggle");
 const engineToggle = document.getElementById("engineToggle");
 const depthInput = document.getElementById("depthInput");
 const sideSelect = document.getElementById("sideSelect");
@@ -15,6 +18,10 @@ const endTitle = document.getElementById("endTitle");
 const endMessage = document.getElementById("endMessage");
 const closeEndBtn = document.getElementById("closeEndBtn");
 const promoModal = document.getElementById("promoModal");
+const coordTop = document.getElementById("coordTop");
+const coordBottom = document.getElementById("coordBottom");
+const coordLeft = document.getElementById("coordLeft");
+const coordRight = document.getElementById("coordRight");
 
 const PIECE_UNICODE = {
   P: "♙",
@@ -105,6 +112,8 @@ const PST = {
 
 const MATE_SCORE = 100000;
 
+let pieceIdCounter = 1;
+const pieceEls = new Map();
 let state = initialState();
 let turn = "w";
 let engineColor = "b";
@@ -114,6 +123,21 @@ let engineBusy = false;
 let moveHistory = [];
 let gameOver = false;
 let pendingPromotion = null;
+
+if (boardEl) {
+  if (!squareLayer) {
+    squareLayer = document.createElement("div");
+    squareLayer.id = "squareLayer";
+    squareLayer.className = "square-layer";
+    boardEl.appendChild(squareLayer);
+  }
+  if (!pieceLayer) {
+    pieceLayer = document.createElement("div");
+    pieceLayer.id = "pieceLayer";
+    pieceLayer.className = "piece-layer";
+    boardEl.appendChild(pieceLayer);
+  }
+}
 
 function initialBoard() {
   return [
@@ -129,10 +153,23 @@ function initialBoard() {
 }
 
 function initialState() {
+  pieceIdCounter = 1;
+  const board = initialBoard();
   return {
-    board: initialBoard(),
+    board,
     castling: { wK: true, wQ: true, bK: true, bQ: true },
+    pieceIds: initialPieceIds(board),
   };
+}
+
+function initialPieceIds(board) {
+  const ids = new Array(64).fill(null);
+  for (let i = 0; i < 64; i++) {
+    const piece = board[i];
+    if (!piece) continue;
+    ids[i] = `${piece}${pieceIdCounter++}`;
+  }
+  return ids;
 }
 
 function idx(r, c) {
@@ -242,6 +279,91 @@ function makeMoveState(current, move) {
   return {
     board: makeMove(current.board, move),
     castling: updateCastlingRights(current.board, current.castling, move),
+  };
+}
+
+function inferCastlingFromBoard(board) {
+  const wKing = board[idx(7, 4)] === "K";
+  const bKing = board[idx(0, 4)] === "k";
+  return {
+    wK: wKing && board[idx(7, 7)] === "R",
+    wQ: wKing && board[idx(7, 0)] === "R",
+    bK: bKing && board[idx(0, 7)] === "r",
+    bQ: bKing && board[idx(0, 0)] === "r",
+  };
+}
+
+function applyMoveToState(current, move, options = {}) {
+  const free = options.free === true;
+  const nextBoard = cloneBoard(current.board);
+  const nextIds = current.pieceIds.slice();
+  const fromIndex = idx(move.from.r, move.from.c);
+  const toIndex = idx(move.to.r, move.to.c);
+  const piece = nextBoard[fromIndex];
+  const pieceId = nextIds[fromIndex];
+  nextBoard[fromIndex] = null;
+  nextIds[fromIndex] = null;
+
+  if (move.castle) {
+    if (piece === "K") {
+      if (move.castle === "K") {
+        const rookIndex = idx(7, 7);
+        const rookId = nextIds[rookIndex];
+        nextBoard[idx(7, 6)] = "K";
+        nextIds[idx(7, 6)] = pieceId;
+        nextBoard[idx(7, 5)] = "R";
+        nextIds[idx(7, 5)] = rookId;
+        nextBoard[rookIndex] = null;
+        nextIds[rookIndex] = null;
+      } else {
+        const rookIndex = idx(7, 0);
+        const rookId = nextIds[rookIndex];
+        nextBoard[idx(7, 2)] = "K";
+        nextIds[idx(7, 2)] = pieceId;
+        nextBoard[idx(7, 3)] = "R";
+        nextIds[idx(7, 3)] = rookId;
+        nextBoard[rookIndex] = null;
+        nextIds[rookIndex] = null;
+      }
+    } else {
+      if (move.castle === "K") {
+        const rookIndex = idx(0, 7);
+        const rookId = nextIds[rookIndex];
+        nextBoard[idx(0, 6)] = "k";
+        nextIds[idx(0, 6)] = pieceId;
+        nextBoard[idx(0, 5)] = "r";
+        nextIds[idx(0, 5)] = rookId;
+        nextBoard[rookIndex] = null;
+        nextIds[rookIndex] = null;
+      } else {
+        const rookIndex = idx(0, 0);
+        const rookId = nextIds[rookIndex];
+        nextBoard[idx(0, 2)] = "k";
+        nextIds[idx(0, 2)] = pieceId;
+        nextBoard[idx(0, 3)] = "r";
+        nextIds[idx(0, 3)] = rookId;
+        nextBoard[rookIndex] = null;
+        nextIds[rookIndex] = null;
+      }
+    }
+    return {
+      board: nextBoard,
+      castling: free ? inferCastlingFromBoard(nextBoard) : updateCastlingRights(current.board, current.castling, move),
+      pieceIds: nextIds,
+    };
+  }
+
+  if (move.promotion) {
+    nextBoard[toIndex] = move.promotion;
+  } else {
+    nextBoard[toIndex] = piece;
+  }
+  nextIds[toIndex] = pieceId;
+
+  return {
+    board: nextBoard,
+    castling: free ? inferCastlingFromBoard(nextBoard) : updateCastlingRights(current.board, current.castling, move),
+    pieceIds: nextIds,
   };
 }
 
@@ -538,13 +660,93 @@ function moveToString(move) {
   return `${from}-${to}`;
 }
 
+function renderCoordinates(flipped) {
+  if (!coordTop || !coordBottom || !coordLeft || !coordRight) return;
+  const files = "abcdefgh".split("");
+  const ranks = ["8", "7", "6", "5", "4", "3", "2", "1"];
+  const fileLabels = flipped ? files.slice().reverse() : files;
+  const rankLabels = flipped ? ranks.slice().reverse() : ranks;
+
+  coordTop.innerHTML = "";
+  coordBottom.innerHTML = "";
+  coordLeft.innerHTML = "";
+  coordRight.innerHTML = "";
+
+  for (const file of fileLabels) {
+    const top = document.createElement("div");
+    top.textContent = file;
+    coordTop.appendChild(top);
+    const bottom = document.createElement("div");
+    bottom.textContent = file;
+    coordBottom.appendChild(bottom);
+  }
+
+  for (const rank of rankLabels) {
+    const left = document.createElement("div");
+    left.textContent = rank;
+    coordLeft.appendChild(left);
+    const right = document.createElement("div");
+    right.textContent = rank;
+    coordRight.appendChild(right);
+  }
+}
+
+function renderPieces(flipped) {
+  if (!pieceLayer) return;
+  const activeIds = new Set();
+  for (let i = 0; i < 64; i++) {
+    const piece = state.board[i];
+    if (!piece) continue;
+    let pieceId = state.pieceIds[i];
+    if (!pieceId) {
+      pieceId = `${piece}${pieceIdCounter++}`;
+      state.pieceIds[i] = pieceId;
+    }
+    activeIds.add(pieceId);
+    let el = pieceEls.get(pieceId);
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "piece";
+      el.dataset.pieceId = pieceId;
+      pieceLayer.appendChild(el);
+      pieceEls.set(pieceId, el);
+    }
+    el.textContent = PIECE_UNICODE[piece];
+    const { r, c } = coord(i);
+    const dr = flipped ? 7 - r : r;
+    const dc = flipped ? 7 - c : c;
+    el.style.transform = `translate(${dc * 100}%, ${dr * 100}%)`;
+  }
+
+  for (const [id, el] of pieceEls.entries()) {
+    if (!activeIds.has(id)) {
+      el.remove();
+      pieceEls.delete(id);
+    }
+  }
+}
+
 function render() {
-  boardEl.innerHTML = "";
+  if (!boardEl) return;
+  if (!squareLayer) {
+    squareLayer = document.createElement("div");
+    squareLayer.id = "squareLayer";
+    squareLayer.className = "square-layer";
+  }
+  if (!pieceLayer) {
+    pieceLayer = document.createElement("div");
+    pieceLayer.id = "pieceLayer";
+    pieceLayer.className = "piece-layer";
+  }
+  if (squareLayer.parentElement !== boardEl) boardEl.appendChild(squareLayer);
+  if (pieceLayer.parentElement !== boardEl) boardEl.appendChild(pieceLayer);
   const flipped = flipToggle.checked;
-  const checkColor = isKingInCheck(state.board, turn) ? turn : null;
+  const inFreeMode = freeToggle.checked;
+  const checkColor = !inFreeMode && isKingInCheck(state.board, turn) ? turn : null;
   const checkIndex = checkColor ? kingIndex(state.board, checkColor) : -1;
   const checkSquare = checkIndex >= 0 ? coord(checkIndex) : null;
 
+  squareLayer.innerHTML = "";
   for (let dr = 0; dr < 8; dr++) {
     for (let dc = 0; dc < 8; dc++) {
       const r = flipped ? 7 - dr : dr;
@@ -553,27 +755,32 @@ function render() {
       square.className = `square ${(r + c) % 2 === 0 ? "light" : "dark"}`;
       square.dataset.r = r;
       square.dataset.c = c;
-      const piece = state.board[idx(r, c)];
-      if (piece) square.textContent = PIECE_UNICODE[piece];
       if (selected && selected.r === r && selected.c === c) {
         square.classList.add("selected");
       }
-      if (legalTargets.some((t) => t.r === r && t.c === c)) {
+      if (!inFreeMode && legalTargets.some((t) => t.r === r && t.c === c)) {
         square.classList.add("move");
       }
       if (checkSquare && checkSquare.r === r && checkSquare.c === c) {
         square.classList.add("check");
       }
       square.addEventListener("click", onSquareClick);
-      boardEl.appendChild(square);
+      squareLayer.appendChild(square);
     }
   }
+  renderPieces(flipped);
+  renderCoordinates(flipped);
   const evalScore = evaluate(state.board) / 100;
   evalEl.textContent = `Evaluation: ${evalScore.toFixed(2)}`;
   updateStatus();
 }
 
 function updateStatus() {
+  if (freeToggle.checked) {
+    statusEl.textContent = "Free Mode";
+    gameOver = false;
+    return;
+  }
   const moves = generateLegalMoves(state, turn);
   if (moves.length === 0) {
     if (isKingInCheck(state.board, turn)) {
@@ -592,6 +799,10 @@ function updateStatus() {
 
 function setSelection(r, c) {
   selected = { r, c };
+  if (freeToggle.checked) {
+    legalTargets = [];
+    return;
+  }
   const moves = generateLegalMoves(state, turn);
   legalTargets = moves
     .filter((m) => m.from.r === r && m.from.c === c)
@@ -604,7 +815,7 @@ function clearSelection() {
 }
 
 function applyMove(move, byEngine) {
-  state = makeMoveState(state, move);
+  state = applyMoveToState(state, move);
   moveHistory.push(moveToString(move));
   const li = document.createElement("li");
   li.textContent = moveToString(move) + (byEngine ? " (engine)" : "");
@@ -616,11 +827,28 @@ function applyMove(move, byEngine) {
 
 function onSquareClick(e) {
   if (engineBusy || gameOver || pendingPromotion) return;
+  const inFreeMode = freeToggle.checked;
   const r = Number(e.currentTarget.dataset.r);
   const c = Number(e.currentTarget.dataset.c);
   const piece = state.board[idx(r, c)];
 
   if (selected) {
+    if (inFreeMode) {
+      if (selected.r === r && selected.c === c) {
+        clearSelection();
+        render();
+        return;
+      }
+      const freeMove = { from: { ...selected }, to: { r, c } };
+      state = applyMoveToState(state, freeMove, { free: true });
+      moveHistory.push(moveToString(freeMove));
+      const li = document.createElement("li");
+      li.textContent = moveToString(freeMove);
+      movesEl.appendChild(li);
+      clearSelection();
+      render();
+      return;
+    }
     const moves = generateLegalMoves(state, turn);
     const chosen = moves.find(
       (m) => m.from.r === selected.r && m.from.c === selected.c && m.to.r === r && m.to.c === c
@@ -637,7 +865,7 @@ function onSquareClick(e) {
     }
   }
 
-  if (piece && pieceColor(piece) === turn) {
+  if (piece && (inFreeMode || pieceColor(piece) === turn)) {
     setSelection(r, c);
   } else {
     clearSelection();
@@ -647,6 +875,7 @@ function onSquareClick(e) {
 
 function maybeEngineMove() {
   if (gameOver) return;
+  if (freeToggle.checked) return;
   if (!engineToggle.checked) return;
   if (turn !== engineColor) return;
   const depth = Math.max(1, Math.min(6, Number(depthInput.value || 3)));
@@ -720,6 +949,21 @@ resetBtn.addEventListener("click", () => {
 });
 
 flipToggle.addEventListener("change", render);
+
+freeToggle.addEventListener("change", () => {
+  const isFree = freeToggle.checked;
+  if (isFree) {
+    engineToggle.checked = false;
+  }
+  engineToggle.disabled = isFree;
+  depthInput.disabled = isFree;
+  sideSelect.disabled = isFree;
+  engineBusy = false;
+  pendingPromotion = null;
+  clearSelection();
+  gameOver = false;
+  render();
+});
 
 tipsBtn.addEventListener("click", showTipsModal);
 closeTipsBtn.addEventListener("click", hideTipsModal);

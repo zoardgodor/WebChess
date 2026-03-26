@@ -15,9 +15,14 @@
       </div>
       <div class="controls">
         <button id="resetBtn">New Game</button>
+        <a class="github-btn" href="https://github.com/zoardgodor/WebChess" target="_blank" rel="noopener">GitHub</a>
         <label class="toggle">
           <input type="checkbox" id="flipToggle" />
           <span>Flip Board</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="freeToggle" />
+          <span>Free Mode</span>
         </label>
         <label class="toggle">
           <span>Engine Depth</span>
@@ -39,7 +44,16 @@
     </header>
 
     <main class="board-area">
-      <div class="board" id="board"></div>
+      <div class="board-wrap">
+        <div class="coord-row top" id="coordTop"></div>
+        <div class="coord-col left" id="coordLeft"></div>
+        <div class="board" id="board">
+          <div class="square-layer" id="squareLayer"></div>
+          <div class="piece-layer" id="pieceLayer"></div>
+        </div>
+        <div class="coord-col right" id="coordRight"></div>
+        <div class="coord-row bottom" id="coordBottom"></div>
+      </div>
       <div class="side">
         <section class="panel">
           <h2>Status</h2>

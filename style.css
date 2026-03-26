@@ -61,6 +61,22 @@ button.ghost {
   border: 1px solid #d0c8bb;
 }
 
+.github-btn {
+  background: #111;
+  color: #fff;
+  border-radius: 8px;
+  padding: 10px 16px;
+  text-decoration: none;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.github-btn:hover {
+  filter: brightness(1.1);
+}
+
 .toggle {
   display: inline-flex;
   align-items: center;
@@ -94,15 +110,49 @@ button.ghost {
   gap: 24px;
 }
 
-.board {
+.board-wrap {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  grid-template-rows: repeat(8, 1fr);
+  grid-template-columns: 28px 1fr 28px;
+  grid-template-rows: 28px 1fr 28px;
+  align-items: stretch;
+  justify-items: stretch;
+  width: 100%;
+  max-width: 520px;
+}
+
+.board {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
   width: 100%;
   aspect-ratio: 1 / 1;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 14px 30px var(--shadow);
+  min-height: 280px;
+}
+
+@supports not (aspect-ratio: 1 / 1) {
+  .board {
+    height: 0;
+    padding-bottom: 100%;
+  }
+}
+
+.square-layer {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  z-index: 1;
+}
+
+.piece-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
 }
 
 .square {
@@ -136,6 +186,64 @@ button.ghost {
     linear-gradient(-45deg, transparent 46%, #f5c400 46%, #f5c400 54%, transparent 54%);
   background-size: 100% 100%;
   background-blend-mode: multiply;
+}
+
+.piece {
+  position: absolute;
+  width: 12.5%;
+  height: 12.5%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  transition: transform 320ms ease;
+  will-change: transform;
+}
+
+.coord-row,
+.coord-col {
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: #6d645a;
+  text-transform: uppercase;
+  display: grid;
+  gap: 2px;
+}
+
+.coord-row {
+  grid-column: 2;
+  grid-template-columns: repeat(8, 1fr);
+  align-items: center;
+  text-align: center;
+}
+
+.coord-row.top {
+  grid-row: 1;
+  align-items: end;
+}
+
+.coord-row.bottom {
+  grid-row: 3;
+  align-items: start;
+}
+
+.coord-col {
+  grid-row: 2;
+  grid-template-rows: repeat(8, 1fr);
+  align-items: center;
+  text-align: center;
+}
+
+.coord-col.left {
+  grid-column: 1;
+  justify-items: end;
+  padding-right: 4px;
+}
+
+.coord-col.right {
+  grid-column: 3;
+  justify-items: start;
+  padding-left: 4px;
 }
 
 .side {
@@ -199,5 +307,10 @@ button.ghost {
 @media (max-width: 900px) {
   .board-area {
     grid-template-columns: 1fr;
+  }
+
+  .board-wrap {
+    grid-template-columns: 20px 1fr 20px;
+    grid-template-rows: 20px 1fr 20px;
   }
 }
