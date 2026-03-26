@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Local Chess Engine</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div>
+        <h1>WebChess</h1>
+        <p></p>
+      </div>
+      <div class="controls">
+        <button id="resetBtn">New Game</button>
+        <label class="toggle">
+          <input type="checkbox" id="flipToggle" />
+          <span>Flip Board</span>
+        </label>
+        <label class="toggle">
+          <span>Engine Depth</span>
+          <input type="number" id="depthInput" min="1" max="6" value="3" />
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="engineToggle" checked />
+          <span>Single Player</span>
+        </label>
+        <label class="toggle">
+          <span>Play As</span>
+          <select id="sideSelect">
+            <option value="w">White</option>
+            <option value="b">Black</option>
+          </select>
+        </label>
+        <button id="tipsBtn" class="ghost">Tips</button>
+      </div>
+    </header>
+
+    <main class="board-area">
+      <div class="board" id="board"></div>
+      <div class="side">
+        <section class="panel">
+          <h2>Status</h2>
+          <div id="status">White to move</div>
+          <div id="eval">Evaluation: 0.00</div>
+        </section>
+        <section class="panel">
+          <h2>Moves</h2>
+          <ol id="moves" class="moves"></ol>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal hidden" id="tipsModal">
+    <div class="modal-card">
+      <h2>Tips</h2>
+      <ul class="tips">
+        <li>Click a piece, then click a target square.</li>
+        <li>Use the flip board toggle to change your perspective.</li>
+        <li>Increase depth to make the engine stronger.</li>
+      </ul>
+      <button id="closeTipsBtn">Close</button>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="endModal">
+    <div class="modal-card">
+      <h2 id="endTitle">Checkmate</h2>
+      <p id="endMessage">Checkmate.</p>
+      <button id="closeEndBtn">Close</button>
+    </div>
+  </div>
+
+  <div class="modal hidden" id="promoModal">
+    <div class="modal-card">
+      <h2>Promote Pawn</h2>
+      <div class="promo-choices">
+        <button data-piece="q">Queen</button>
+        <button data-piece="r">Rook</button>
+        <button data-piece="b">Bishop</button>
+        <button data-piece="n">Knight</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
