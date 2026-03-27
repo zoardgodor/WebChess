@@ -22,6 +22,7 @@ const coordTop = document.getElementById("coordTop");
 const coordBottom = document.getElementById("coordBottom");
 const coordLeft = document.getElementById("coordLeft");
 const coordRight = document.getElementById("coordRight");
+const remoteStatusEl = document.getElementById("remoteStatus");
 
 const PIECE_UNICODE = {
   P: "♙",
@@ -123,6 +124,76 @@ let engineBusy = false;
 let moveHistory = [];
 let gameOver = false;
 let pendingPromotion = null;
+
+const CONTROL_BINDINGS = [
+  { el: resetBtn },
+  { el: tipsBtn },
+  { el: flipToggle, wrapper: flipToggle?.closest(".toggle") },
+  { el: freeToggle, wrapper: freeToggle?.closest(".toggle") },
+  { el: depthInput, wrapper: depthInput?.closest(".toggle") },
+  { el: engineToggle, wrapper: engineToggle?.closest(".toggle") },
+  { el: sideSelect, wrapper: sideSelect?.closest(".toggle") },
+];
+
+function setControlsLocked(locked) {
+  CONTROL_BINDINGS.forEach(({ el, wrapper }) => {
+    if (!el) return;
+    el.disabled = locked;
+    const target = wrapper || el;
+    if (target) {
+      target.style.opacity = locked ? "0.5" : "1";
+      target.style.pointerEvents = locked ? "none" : "auto";
+    }
+  });
+}
+
+function setRemoteStatus(online, text) {
+  if (!remoteStatusEl) return;
+  remoteStatusEl.textContent = text;
+  remoteStatusEl.classList.toggle("online", online);
+}
+
+function connectPythonBridge() {
+  if (location.protocol === "https:") {
+    setRemoteStatus(false, "Python link: blocked (https)");
+    return;
+  }
+
+  const url = "ws://127.0.0.1:8765";
+  let socket;
+
+  function scheduleReconnect() {
+    setTimeout(connectPythonBridge, 2000);
+  }
+
+  try {
+    socket = new WebSocket(url);
+  } catch (err) {
+    setRemoteStatus(false, "Python link: offline");
+    scheduleReconnect();
+    return;
+  }
+
+  socket.onopen = () => setRemoteStatus(true, "Python link: online");
+  socket.onclose = () => {
+    setRemoteStatus(false, "Python link: offline");
+    scheduleReconnect();
+  };
+  socket.onerror = () => socket.close();
+  socket.onmessage = (event) => {
+    let payload;
+    try {
+      payload = JSON.parse(event.data);
+    } catch {
+      return;
+    }
+    if (payload.type === "lock") {
+      setControlsLocked(Boolean(payload.locked));
+    }
+  };
+}
+
+connectPythonBridge();
 
 if (boardEl) {
   if (!squareLayer) {
