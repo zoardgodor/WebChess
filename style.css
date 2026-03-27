@@ -43,24 +43,6 @@ body {
   flex-wrap: wrap;
 }
 
-.remote-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 999px;
-  background: #fff7e6;
-  border: 1px solid #e4d3b7;
-  font-size: 13px;
-  color: #6b4f2a;
-}
-
-.remote-status.online {
-  background: #e7f6ec;
-  border-color: #bfe5cb;
-  color: #1d5e34;
-}
-
 button {
   background: var(--accent);
   color: white;
